@@ -115,17 +115,20 @@ function handleLogout() {
 </script>
 
 <style scoped>
-.layout { display: flex; height: 100vh; overflow: hidden; }
-.sidebar { width: 220px; height: 100%; overflow-y: auto; border-right: 1px solid #e5e7eb; }
+.layout { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: 220px; flex-shrink: 0; height: 100%; overflow-y: auto; border-right: 1px solid #e5e7eb; background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); }
 .sidebar:not(.el-menu--collapse) { width: 220px; }
-.sidebar-header { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
-.logo-icon { font-size: 24px; }
-.logo-text { font-weight: 700; font-size: 14px; color: #1f2937; }
-.menu-group-label { padding: 12px 20px 4px; font-size: 10px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
-.main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.topbar { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid #e5e7eb; background: #fff; }
-.page-title { font-size: 15px; font-weight: 600; color: #1f2937; }
-.topbar-right { display: flex; align-items: center; gap: 12px; }
-.user-name { font-size: 13px; color: #6b7280; }
-.content { flex: 1; overflow-y: auto; padding: 20px; background: #f9fafb; }
+.sidebar .el-menu-item { color: rgba(255,255,255,0.7) !important; }
+.sidebar .el-menu-item:hover { background: rgba(255,255,255,0.08) !important; }
+.sidebar .el-menu-item.is-active { color: #fff !important; background: linear-gradient(135deg, #3b82f6, #6366f1) !important; }
+.sidebar-header { display: flex; align-items: center; gap: 10px; padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); cursor: pointer; }
+.logo-icon { font-size: 26px; }
+.logo-text { font-weight: 700; font-size: 15px; color: #f1f5f9; letter-spacing: 1px; }
+.menu-group-label { padding: 16px 20px 6px; font-size: 10px; color: rgba(255,255,255,0.35); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(135deg, #f0f4ff 0%, #fdf2f8 50%, #f0fdf4 100%); }
+.topbar { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; border-bottom: 1px solid rgba(0,0,0,0.06); background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); }
+.page-title { font-size: 15px; font-weight: 700; color: #0f172a; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.user-name { font-size: 13px; color: #64748b; }
+.content { flex: 1; overflow-y: auto; padding: 24px; }
 </style>

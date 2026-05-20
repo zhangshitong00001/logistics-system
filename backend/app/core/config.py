@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Redis
     REDIS_HOST: str = "127.0.0.1"
     REDIS_PORT: int = 6379
-    REDIS_PASSWORD: str = "Qq981997@"
+    REDIS_PASSWORD: str = "fRVfyvJyXDh8UJvm0v9AplyGm843H"
     REDIS_DB: int = 2
 
     # JWT

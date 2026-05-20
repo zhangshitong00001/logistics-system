@@ -42,3 +42,26 @@ class PageResponse(BaseModel):
     page: int
     size: int
     pages: int
+
+
+# ====== Auth Extras ======
+class SendCodeRequest(BaseModel):
+    email: str
+    purpose: str = "login"
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    real_name: str = ""
+    phone: str = ""
+    email: str = ""
+    code: str = ""
+
+class CodeLoginRequest(BaseModel):
+    email: str
+    code: str
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    code: str
+    new_password: str

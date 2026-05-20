@@ -4,6 +4,7 @@ from sqlalchemy import func
 from app.core.database import get_db
 from app.models.alert import AlertRecord, AlertRule
 from datetime import datetime, timezone
+from sqlalchemy import Interval
 
 router = APIRouter(prefix="/api/v1/alert", tags=["异常预警中心"])
 
@@ -21,16 +22,16 @@ def get_dashboard(db: Session = Depends(get_db)):
 
     overdue = db.query(func.count(AlertRecord.id)).filter(
         AlertRecord.status == 0,
-        AlertRecord.create_time < func.now() - func.make_interval(hours=24),
+        AlertRecord.create_time < func.now() - func.cast("24 hours", Interval),
     ).scalar() or 0
 
     total_week = db.query(func.count(AlertRecord.id)).filter(
-        AlertRecord.create_time >= func.now() - func.make_interval(days=7),
+        AlertRecord.create_time >= func.now() - func.cast("7 days", Interval),
     ).scalar() or 0
 
     resolved = db.query(func.count(AlertRecord.id)).filter(
         AlertRecord.status == 2,
-        AlertRecord.create_time >= func.now() - func.make_interval(days=7),
+        AlertRecord.create_time >= func.now() - func.cast("7 days", Interval),
     ).scalar() or 0
 
     avg_handle = db.query(func.avg(
