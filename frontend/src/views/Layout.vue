@@ -57,6 +57,7 @@ const menuMap = {
   alert: '异常预警中心',
   analytics: '统计分析',
   permission: '权限管理',
+  users: '用户管理',
   billing: '计费规则配置',
 }
 
@@ -95,6 +96,7 @@ const menuGroups = [
     children: [
       { path: '/tracking', label: '物流状态追踪', icon: '🔍' },
       { path: '/permission', label: '权限管理', icon: '🔐' },
+      { path: '/users', label: '用户管理', icon: '👤' },
       { path: '/analytics', label: '统计分析', icon: '📈' },
       { path: '/alert', label: '异常预警中心', icon: '⚠️' },
       { path: '/billing', label: '计费规则配置', icon: '⚙️' },

@@ -18,6 +18,7 @@ import Alert from '../views/Alert.vue'
 import Analytics from '../views/Analytics.vue'
 import Permission from '../views/Permission.vue'
 import Billing from '../views/Billing.vue'
+import UserManage from '../views/UserManage.vue'
 
 const routes = [
   { path: '/login', component: Login },
@@ -43,6 +44,7 @@ const routes = [
       { path: 'analytics', component: Analytics },
       { path: 'permission', component: Permission },
       { path: 'billing', component: Billing },
+      { path: 'users', component: UserManage },
     ]
   }
 ]
