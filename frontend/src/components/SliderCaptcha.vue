@@ -45,7 +45,7 @@ function seededRng(seed) {
   return () => { s = (s * 9301 + 49297) % 233280; return s / 233280 }
 }
 
-function drawBg(ctx, w, h, seed) {
+function drawBg(ctx, w, h, seed, ox) {
   const r = seededRng(seed)
   const g = ctx.createLinearGradient(0, 0, w, h)
   const h1 = Math.floor(r() * 360), h2 = (h1 + 40 + Math.floor(r() * 50)) % 360
@@ -61,7 +61,7 @@ function drawBg(ctx, w, h, seed) {
   }
   ctx.globalAlpha = 1
 
-  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(0, 0, PS, CH)
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(ox || 0, 0, PS, CH)
 }
 
 function drawPiece(ctx, src, ox, ps, h) {
@@ -83,7 +83,7 @@ async function initCaptcha() {
     if (!bg || !pc) return
     let seed = 0
     for (let i = 0; i < captchaId.value.length; i++) seed += captchaId.value.charCodeAt(i)
-    drawBg(bg.getContext('2d'), CW, CH, seed)
+    drawBg(bg.getContext('2d'), CW, CH, seed, targetX.value)
     drawPiece(pc.getContext('2d'), bg, targetX.value, PS, CH)
   } catch (e) { console.warn('[Captcha] init fail:', e) }
 }
