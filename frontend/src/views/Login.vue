@@ -20,8 +20,8 @@
         <el-form-item>
           <el-input v-model="loginForm.password" type="password" placeholder="密码" prefix-icon="Lock" size="large" show-password @keyup.enter="handleLogin" />
         </el-form-item>
-        <!-- 滑块验证码 -->
-        <SliderCaptcha @verified="onCaptchaVerified" ref="captchaRef" />
+        <!-- 图片验证码 -->
+        <SliderCaptcha @verified="onCaptchaVerified" @submit="handleLogin" ref="captchaRef" />
         <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="handleLogin">登 录</el-button>
       </el-form>
 
@@ -109,13 +109,13 @@ const error = ref('')
 const successMsg = ref('')
 const activeTab = ref('login')
 
-// 滑块验证码状态
+// 图片验证码状态
 const captchaRef = ref(null)
-const loginCaptcha = reactive({ captcha_id: '', offset_x: 0, verified: false })
+const loginCaptcha = reactive({ captcha_id: '', code: '', verified: false })
 
 function onCaptchaVerified(data) {
   loginCaptcha.captcha_id = data.captcha_id
-  loginCaptcha.offset_x = data.offset_x
+  loginCaptcha.code = data.code
   loginCaptcha.verified = true
 }
 
@@ -169,19 +169,19 @@ async function handleLogin() {
     return
   }
   if (!loginCaptcha.verified) {
-    error.value = '请先完成滑块验证'
+    error.value = '请先完成验证码'
     return
   }
   loading.value = true; error.value = ''; successMsg.value = ''
   try {
-    const captchaStr = `${loginCaptcha.captcha_id}:${loginCaptcha.offset_x}`
+    const captchaStr = `${loginCaptcha.captcha_id}:${loginCaptcha.code}`
     await auth.login(loginForm.username, loginForm.password, captchaStr)
     router.push('/dashboard')
   } catch (e) {
     error.value = e.response?.data?.detail || '登录失败'
     // 验证码失效，重置
     loginCaptcha.verified = false
-    if (captchaRef.value) captchaRef.value?.initCaptcha?.()
+    if (captchaRef.value) captchaRef.value?.refresh?.()
   } finally { loading.value = false }
 }
 

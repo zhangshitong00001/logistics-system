@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 import random
 import string
 
 import uuid
-import math
+import base64
+import io
 
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, decode_access_token, get_password_hash
@@ -16,68 +18,68 @@ from app.core.redis_client import redis_client
 router = APIRouter(prefix="/api/v1/auth", tags=["认证管理"])
 
 CODE_EXPIRE = 300  # 验证码有效期5分钟
-CAPTCHA_TOLERANCE = 10  # 滑块验证容差（像素）
 
 
 def _generate_code(length=6):
     return ''.join(random.choices(string.digits, k=length))
 
 
-# ==================== 滑块验证码 ====================
+# ==================== 图片验证码 ====================
 
-@router.get("/captcha", response_model=CaptchaResponse)
+def _generate_image_captcha():
+    """生成4位字母数字图片验证码，返回 (code, base64_data_url)"""
+    from captcha.image import ImageCaptcha
+    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    img = ImageCaptcha(width=180, height=50)
+    data = img.generate(code)
+    b64 = base64.b64encode(data.read()).decode()
+    return code, f"data:image/png;base64,{b64}"
+
+
+@router.get("/captcha")
 def get_captcha():
-    """生成滑块验证码挑战，返回 captcha_id 和切口偏移位置"""
+    """生成图片验证码"""
     captcha_id = uuid.uuid4().hex[:16]
-    offset_x = random.randint(50, 200)  # 切口水平位置
-    canvas_w, canvas_h = 280, 160
-    piece_size = 40
+    code, img_b64 = _generate_image_captcha()
 
-    # 存储到 Redis，5分钟有效
-    redis_client.setex(f"captcha:{captcha_id}", 300, str(offset_x))
+    # 存储到 Redis，5分钟有效（忽略大小写）
+    redis_client.setex(f"captcha:{captcha_id}", 300, code.upper())
 
-    return CaptchaResponse(
-        captcha_id=captcha_id,
-        offset_x=offset_x,
-        canvas_width=canvas_w,
-        canvas_height=canvas_h,
-        piece_size=piece_size,
-    )
+    return CaptchaResponse(captcha_id=captcha_id, image=img_b64)
 
 
 @router.post("/captcha/verify")
 def verify_captcha(req: CaptchaVerifyRequest):
-    """验证滑块拖拽位置是否匹配"""
+    """验证图片验证码"""
     stored = redis_client.get(f"captcha:{req.captcha_id}")
     if not stored:
         raise HTTPException(status_code=400, detail="验证码已过期，请刷新")
 
-    expected = int(stored)
-    diff = abs(req.offset_x - expected)
+    if stored != req.code.strip().upper():
+        return {"code": 400, "message": "验证码错误", "passed": False}
 
-    if diff > CAPTCHA_TOLERANCE:
-        return {"code": 400, "message": f"验证失败，偏差 {diff}px", "passed": False}
-
-    # 标记已验证（保留记录防重用，但标记已通过）
+    # 标记已验证
     redis_client.setex(f"captcha:passed:{req.captcha_id}", 300, "1")
     return {"code": 200, "message": "验证通过", "passed": True}
 
 
 def _require_captcha(captcha: str | None):
-    """校验滑块验证码，格式 captcha_id:offset_x"""
+    """校验图片验证码，格式 captcha_id:code"""
     if not captcha:
-        raise HTTPException(status_code=400, detail="请完成滑块验证")
-    parts = captcha.split(":")
-    if len(parts) != 2:
-        raise HTTPException(status_code=400, detail="验证码格式错误")
-    cid, user_x_str = parts[0], parts[1]
-    if not cid or not user_x_str.isdigit():
+        raise HTTPException(status_code=400, detail="请输入验证码")
+    parts = captcha.split(":", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
         raise HTTPException(status_code=400, detail="验证码格式错误")
 
-    # 检查是否已通过验证
-    passed = redis_client.get(f"captcha:passed:{cid}")
-    if not passed:
-        raise HTTPException(status_code=400, detail="请先完成滑块验证")
+    cid, ucode = parts[0], parts[1]
+    stored = redis_client.get(f"captcha:{cid}")
+    if not stored:
+        raise HTTPException(status_code=400, detail="验证码已过期，请刷新")
+
+    if stored != ucode.strip().upper():
+        raise HTTPException(status_code=400, detail="验证码错误")
+
+    # 不依赖 passed 标记，直接在校验时对比文本
 
 
 
@@ -98,8 +100,8 @@ def _make_token_resp(user: SysUser):
 
 @router.post("/login", response_model=LoginResponse)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
-    """用户密码登录（需先完成滑块验证）"""
-    # 校验滑块验证码
+    """用户密码登录（需输入验证码）"""
+    # 校验图片验证码
     _require_captcha(req.captcha)
 
     user = db.query(SysUser).filter(
@@ -112,9 +114,8 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="用户名或密码错误")
 
     # 登录成功，清理验证码记录
-    parts = req.captcha.split(":")
-    redis_client.delete(f"captcha:{parts[0]}")
-    redis_client.delete(f"captcha:passed:{parts[0]}")
+    cid = req.captcha.split(":")[0]
+    redis_client.delete(f"captcha:{cid}")
 
     return _make_token_resp(user)
 

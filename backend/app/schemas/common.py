@@ -48,14 +48,11 @@ class PageResponse(BaseModel):
 # ====== Captcha ======
 class CaptchaResponse(BaseModel):
     captcha_id: str
-    offset_x: int
-    canvas_width: int = 280
-    canvas_height: int = 160
-    piece_size: int = 40
+    image: str  # base64 data URL of captcha image
 
 class CaptchaVerifyRequest(BaseModel):
     captcha_id: str
-    offset_x: int
+    code: str  # user input
 
 
 class SendCodeRequest(BaseModel):
