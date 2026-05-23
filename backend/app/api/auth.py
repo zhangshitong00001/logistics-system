@@ -16,7 +16,7 @@ from app.core.redis_client import redis_client
 router = APIRouter(prefix="/api/v1/auth", tags=["认证管理"])
 
 CODE_EXPIRE = 300  # 验证码有效期5分钟
-CAPTCHA_TOLERANCE = 6  # 滑块验证容差（像素）
+CAPTCHA_TOLERANCE = 10  # 滑块验证容差（像素）
 
 
 def _generate_code(length=6):
