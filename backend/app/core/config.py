@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     # Upload
     UPLOAD_DIR: str = "/data/logistics/uploads"
 
+    # Email (SMTP)
+    SMTP_HOST: str = "smtp.163.com"
+    SMTP_PORT: int = 465
+    SMTP_USER: str = "zst_9609_4557@163.com"
+    SMTP_PASSWORD: str = ""  # 实际值从 .env 读取
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

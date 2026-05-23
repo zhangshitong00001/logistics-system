@@ -14,6 +14,8 @@ from app.core.security import verify_password, create_access_token, decode_acces
 from app.models.sys_user import SysUser
 from app.schemas.common import LoginRequest, LoginResponse, SendCodeRequest, RegisterRequest, CodeLoginRequest, ResetPasswordRequest, CaptchaResponse, CaptchaVerifyRequest
 from app.core.redis_client import redis_client
+from app.core.email import send_email_code
+from app.core.config import get_settings
 
 router = APIRouter(prefix="/api/v1/auth", tags=["认证管理"])
 
@@ -179,6 +181,7 @@ def send_code(req: SendCodeRequest):
     if not req.email:
         raise HTTPException(status_code=400, detail="邮箱不能为空")
 
+    settings = get_settings()
     cooldown_key = f"verify_cooldown:{req.email}"
     if redis_client.get(cooldown_key):
         raise HTTPException(status_code=429, detail="发送过于频繁，请60秒后再试")
@@ -187,7 +190,16 @@ def send_code(req: SendCodeRequest):
     redis_client.setex(f"verify_code:{req.email}", CODE_EXPIRE, code)
     redis_client.setex(cooldown_key, 60, "1")
 
-    print(f"[验证码] 邮箱:{req.email} 用途:{req.purpose} 验证码:{code}（有效期5分钟）")
+    # 实际发送邮件
+    try:
+        send_email_code(req.email, code, req.purpose or "login")
+        print(f"[验证码] 已发送 邮箱:{req.email} 用途:{req.purpose} 验证码:{code}")
+    except Exception as e:
+        print(f"[验证码] 发送失败 邮箱:{req.email} error:{e}")
+        # 即使邮件发送失败，验证码仍在 Redis 中（调试用）
+        # 生产环境这里应抛异常
+        if not settings.DEBUG:
+            raise HTTPException(status_code=500, detail=f"邮件发送失败: {str(e)}")
 
     return {"code": 200, "message": "验证码已发送", "data": {"email": req.email}}
 
