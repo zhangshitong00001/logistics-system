@@ -9,10 +9,16 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isLoggedIn: (state) => !!state.token,
     username: (state) => state.user?.real_name || state.user?.username || '',
+    isAdmin: (state) => state.user?.role_id === 1,
   },
   actions: {
     async login(username, password, captcha = '') {
       const res = await api.post('/auth/login', { username, password, captcha })
+      this._setSession(res)
+      return res
+    },
+    async adminLogin(username, password, code) {
+      const res = await api.post('/auth/admin-login', { username, password, code })
       this._setSession(res)
       return res
     },

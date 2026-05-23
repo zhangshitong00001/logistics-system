@@ -12,7 +12,7 @@ import io
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, decode_access_token, get_password_hash
 from app.models.sys_user import SysUser
-from app.schemas.common import LoginRequest, LoginResponse, SendCodeRequest, RegisterRequest, CodeLoginRequest, ResetPasswordRequest, CaptchaResponse, CaptchaVerifyRequest
+from app.schemas.common import LoginRequest, LoginResponse, SendCodeRequest, RegisterRequest, CodeLoginRequest, ResetPasswordRequest, CaptchaResponse, CaptchaVerifyRequest, AdminLoginEmailRequest, AdminLoginVerifyRequest
 from app.core.redis_client import redis_client
 from app.core.email import send_email_code
 from app.core.config import get_settings
@@ -103,7 +103,6 @@ def _make_token_resp(user: SysUser):
 @router.post("/login", response_model=LoginResponse)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     """用户密码登录（需输入验证码）"""
-    # 校验图片验证码
     _require_captcha(req.captcha)
 
     user = db.query(SysUser).filter(
@@ -118,6 +117,76 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     # 登录成功，清理验证码记录
     cid = req.captcha.split(":")[0]
     redis_client.delete(f"captcha:{cid}")
+
+    return _make_token_resp(user)
+
+
+@router.post("/admin-send-code")
+def admin_send_code(req: AdminLoginEmailRequest, db: Session = Depends(get_db)):
+    """管理员登录 - 发送邮箱验证码"""
+    if not req.username:
+        raise HTTPException(status_code=400, detail="用户名不能为空")
+
+    user = db.query(SysUser).filter(
+        SysUser.username == req.username,
+        SysUser.deleted == 0,
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    if user.role_id != 1:
+        raise HTTPException(status_code=403, detail="非管理员账号")
+
+    if not user.email:
+        raise HTTPException(status_code=400, detail="管理员未设置邮箱，请联系系统配置")
+
+    # 60秒防重复
+    cooldown_key = f"admin_code_cooldown:{user.id}"
+    if redis_client.get(cooldown_key):
+        raise HTTPException(status_code=429, detail="发送过于频繁，请60秒后再试")
+
+    code = _generate_code()
+    redis_client.setex(f"admin_code:{user.id}", CODE_EXPIRE, code)
+    redis_client.setex(cooldown_key, 60, "1")
+
+    try:
+        send_email_code(user.email, code, "admin_login")
+        print(f"[管理员验证码] 已发送 用户名:{req.username} 邮箱:{user.email} 验证码:{code}")
+    except Exception as e:
+        print(f"[管理员验证码] 发送失败 用户名:{req.username} error:{e}")
+        settings = get_settings()
+        if not settings.DEBUG:
+            raise HTTPException(status_code=500, detail=f"邮件发送失败: {str(e)}")
+
+    return {"code": 200, "message": f"验证码已发送到 {user.email}"}
+
+
+@router.post("/admin-login", response_model=LoginResponse)
+def admin_login(req: AdminLoginVerifyRequest, db: Session = Depends(get_db)):
+    """管理员登录（用户名 + 密码 + 邮箱验证码）"""
+    if not req.username or not req.password or not req.code:
+        raise HTTPException(status_code=400, detail="用户名、密码和验证码不能为空")
+
+    user = db.query(SysUser).filter(
+        SysUser.username == req.username,
+        SysUser.deleted == 0,
+        SysUser.status == 1,
+    ).first()
+
+    if not user or not verify_password(req.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+    if user.role_id != 1:
+        raise HTTPException(status_code=403, detail="非管理员账号，请前往用户登录页面")
+
+    # 校验邮箱验证码
+    saved = redis_client.get(f"admin_code:{user.id}")
+    if not saved or saved != req.code:
+        raise HTTPException(status_code=400, detail="验证码错误或已过期")
+
+    # 清理
+    redis_client.delete(f"admin_code:{user.id}")
 
     return _make_token_resp(user)
 

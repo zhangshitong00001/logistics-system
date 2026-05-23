@@ -90,6 +90,9 @@
 
       <p v-if="error" class="login-error">{{ error }}</p>
       <p v-if="successMsg" class="login-success">{{ successMsg }}</p>
+      <div class="login-footer">
+        <router-link to="/admin/login">管理员登录 →</router-link>
+      </div>
     </div>
   </div>
 </template>
@@ -326,4 +329,7 @@ async function handleReset() {
 .login-btn:hover { background: linear-gradient(135deg, #2563eb, #4f46e5); }
 .login-error { color: #ef4444; font-size: 13px; margin-top: 12px; }
 .login-success { color: #22c55e; font-size: 13px; margin-top: 12px; }
+.login-footer { margin-top: 16px; font-size: 13px; }
+.login-footer a { color: #3b82f6; text-decoration: none; }
+.login-footer a:hover { text-decoration: underline; }
 </style>

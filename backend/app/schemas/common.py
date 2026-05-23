@@ -75,3 +75,15 @@ class ResetPasswordRequest(BaseModel):
     email: str
     code: str
     new_password: str
+
+
+class AdminLoginEmailRequest(BaseModel):
+    """管理员邮箱验证码请求"""
+    username: str
+
+
+class AdminLoginVerifyRequest(BaseModel):
+    """管理员登录（邮箱验证码）"""
+    username: str
+    password: str
+    code: str

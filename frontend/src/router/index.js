@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
+import AdminLogin from '../views/AdminLogin.vue'
 import Layout from '../views/Layout.vue'
 import Dashboard from '../views/Dashboard.vue'
 import Consolidation from '../views/Consolidation.vue'
@@ -22,6 +23,7 @@ import UserManage from '../views/UserManage.vue'
 
 const routes = [
   { path: '/login', component: Login },
+  { path: '/admin/login', component: AdminLogin },
   {
     path: '/',
     component: Layout,
@@ -56,7 +58,11 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
-  if (to.path !== '/login' && !token) {
+  // 登录页和 admin 登录页不需要登录即可访问
+  if (to.path === '/login' || to.path === '/admin/login') {
+    next()
+  } else if (!token) {
+    // 未登录访问受保护页面，跳转普通用户登录
     next('/login')
   } else {
     next()

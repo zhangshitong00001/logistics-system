@@ -40,7 +40,11 @@ const route = useRoute()
 const auth = useAuthStore()
 const collapsed = ref(false)
 
-const menuMap = {
+// admin-only 菜单路径列表
+const adminMenus = ['/permission', '/users', '/billing']
+
+// 页面标题映射
+const titleMap = {
   dashboard: '系统首页',
   consolidation: '云仓集货管理',
   sorting: '收件点分装管理',
@@ -60,49 +64,59 @@ const menuMap = {
   users: '用户管理',
   billing: '计费规则配置',
 }
+const currentTitle = computed(() => titleMap[route.path.split('/')[1]] || '系统首页')
 
-const currentTitle = computed(() => menuMap[route.path.split('/')[1]] || '系统首页')
+const menuGroups = computed(() => {
+  const groups = [
+    {
+      label: '核心视图',
+      children: [
+        { path: '/dashboard', label: '系统首页', icon: '📊' },
+      ]
+    },
+    {
+      label: '业务流程',
+      children: [
+        { path: '/consolidation', label: '云仓集货管理', icon: '📦' },
+        { path: '/sorting', label: '收件点分装管理', icon: '📋' },
+        { path: '/files', label: '文件生成管理', icon: '📄' },
+        { path: '/transport', label: '装车运输管理', icon: '🚛' },
+        { path: '/customs', label: '报关/清关管理', icon: '🏛️' },
+        { path: '/warehouse', label: '仓库分拣管理', icon: '📦' },
+        { path: '/delivery', label: '配送管理', icon: '🚚' },
+        { path: '/signin', label: '签收入库管理', icon: '✍️' },
+      ]
+    },
+    {
+      label: '财务管理',
+      children: [
+        { path: '/reconciliation', label: '对账管理', icon: '💰' },
+        { path: '/settlement', label: '资金结算', icon: '💵' },
+        { path: '/payment', label: '支付开票', icon: '📜' },
+      ]
+    },
+    {
+      label: '核心功能',
+      children: [
+        { path: '/tracking', label: '物流状态追踪', icon: '🔍' },
+        { path: '/permission', label: '权限管理', icon: '🔐' },
+        { path: '/users', label: '用户管理', icon: '👤' },
+        { path: '/analytics', label: '统计分析', icon: '📈' },
+        { path: '/alert', label: '异常预警中心', icon: '⚠️' },
+        { path: '/billing', label: '计费规则配置', icon: '⚙️' },
+      ]
+    },
+  ]
 
-const menuGroups = [
-  {
-    label: '核心视图',
-    children: [
-      { path: '/dashboard', label: '系统首页', icon: '📊' },
-    ]
-  },
-  {
-    label: '业务流程',
-    children: [
-      { path: '/consolidation', label: '云仓集货管理', icon: '📦' },
-      { path: '/sorting', label: '收件点分装管理', icon: '📋' },
-      { path: '/files', label: '文件生成管理', icon: '📄' },
-      { path: '/transport', label: '装车运输管理', icon: '🚛' },
-      { path: '/customs', label: '报关/清关管理', icon: '🏛️' },
-      { path: '/warehouse', label: '仓库分拣管理', icon: '📦' },
-      { path: '/delivery', label: '配送管理', icon: '🚚' },
-      { path: '/signin', label: '签收入库管理', icon: '✍️' },
-    ]
-  },
-  {
-    label: '财务管理',
-    children: [
-      { path: '/reconciliation', label: '对账管理', icon: '💰' },
-      { path: '/settlement', label: '资金结算', icon: '💵' },
-      { path: '/payment', label: '支付开票', icon: '📜' },
-    ]
-  },
-  {
-    label: '核心功能',
-    children: [
-      { path: '/tracking', label: '物流状态追踪', icon: '🔍' },
-      { path: '/permission', label: '权限管理', icon: '🔐' },
-      { path: '/users', label: '用户管理', icon: '👤' },
-      { path: '/analytics', label: '统计分析', icon: '📈' },
-      { path: '/alert', label: '异常预警中心', icon: '⚠️' },
-      { path: '/billing', label: '计费规则配置', icon: '⚙️' },
-    ]
-  },
-]
+  // 普通用户过滤掉 admin-only 菜单
+  if (!auth.isAdmin) {
+    return groups.map(group => ({
+      ...group,
+      children: group.children.filter(item => !adminMenus.includes(item.path)),
+    })).filter(group => group.children.length > 0)
+  }
+  return groups
+})
 
 const activeMenu = computed(() => '/' + route.path.split('/')[1])
 
