@@ -45,6 +45,19 @@ class PageResponse(BaseModel):
 
 
 # ====== Auth Extras ======
+# ====== Captcha ======
+class CaptchaResponse(BaseModel):
+    captcha_id: str
+    offset_x: int
+    canvas_width: int = 280
+    canvas_height: int = 160
+    piece_size: int = 40
+
+class CaptchaVerifyRequest(BaseModel):
+    captcha_id: str
+    offset_x: int
+
+
 class SendCodeRequest(BaseModel):
     email: str
     purpose: str = "login"

@@ -4,19 +4,81 @@ from datetime import datetime, timezone
 import random
 import string
 
+import uuid
+import math
+
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, decode_access_token, get_password_hash
 from app.models.sys_user import SysUser
-from app.schemas.common import LoginRequest, LoginResponse, SendCodeRequest, RegisterRequest, CodeLoginRequest, ResetPasswordRequest
+from app.schemas.common import LoginRequest, LoginResponse, SendCodeRequest, RegisterRequest, CodeLoginRequest, ResetPasswordRequest, CaptchaResponse, CaptchaVerifyRequest
 from app.core.redis_client import redis_client
 
 router = APIRouter(prefix="/api/v1/auth", tags=["认证管理"])
 
 CODE_EXPIRE = 300  # 验证码有效期5分钟
+CAPTCHA_TOLERANCE = 6  # 滑块验证容差（像素）
 
 
 def _generate_code(length=6):
     return ''.join(random.choices(string.digits, k=length))
+
+
+# ==================== 滑块验证码 ====================
+
+@router.get("/captcha", response_model=CaptchaResponse)
+def get_captcha():
+    """生成滑块验证码挑战，返回 captcha_id 和切口偏移位置"""
+    captcha_id = uuid.uuid4().hex[:16]
+    offset_x = random.randint(50, 200)  # 切口水平位置
+    canvas_w, canvas_h = 280, 160
+    piece_size = 40
+
+    # 存储到 Redis，5分钟有效
+    redis_client.setex(f"captcha:{captcha_id}", 300, str(offset_x))
+
+    return CaptchaResponse(
+        captcha_id=captcha_id,
+        offset_x=offset_x,
+        canvas_width=canvas_w,
+        canvas_height=canvas_h,
+        piece_size=piece_size,
+    )
+
+
+@router.post("/captcha/verify")
+def verify_captcha(req: CaptchaVerifyRequest):
+    """验证滑块拖拽位置是否匹配"""
+    stored = redis_client.get(f"captcha:{req.captcha_id}")
+    if not stored:
+        raise HTTPException(status_code=400, detail="验证码已过期，请刷新")
+
+    expected = int(stored)
+    diff = abs(req.offset_x - expected)
+
+    if diff > CAPTCHA_TOLERANCE:
+        return {"code": 400, "message": f"验证失败，偏差 {diff}px", "passed": False}
+
+    # 标记已验证（保留记录防重用，但标记已通过）
+    redis_client.setex(f"captcha:passed:{req.captcha_id}", 300, "1")
+    return {"code": 200, "message": "验证通过", "passed": True}
+
+
+def _require_captcha(captcha: str | None):
+    """校验滑块验证码，格式 captcha_id:offset_x"""
+    if not captcha:
+        raise HTTPException(status_code=400, detail="请完成滑块验证")
+    parts = captcha.split(":")
+    if len(parts) != 2:
+        raise HTTPException(status_code=400, detail="验证码格式错误")
+    cid, user_x_str = parts[0], parts[1]
+    if not cid or not user_x_str.isdigit():
+        raise HTTPException(status_code=400, detail="验证码格式错误")
+
+    # 检查是否已通过验证
+    passed = redis_client.get(f"captcha:passed:{cid}")
+    if not passed:
+        raise HTTPException(status_code=400, detail="请先完成滑块验证")
+
 
 
 def _make_token_resp(user: SysUser):
@@ -36,7 +98,10 @@ def _make_token_resp(user: SysUser):
 
 @router.post("/login", response_model=LoginResponse)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
-    """用户密码登录"""
+    """用户密码登录（需先完成滑块验证）"""
+    # 校验滑块验证码
+    _require_captcha(req.captcha)
+
     user = db.query(SysUser).filter(
         SysUser.username == req.username,
         SysUser.deleted == 0,
@@ -45,6 +110,11 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+    # 登录成功，清理验证码记录
+    parts = req.captcha.split(":")
+    redis_client.delete(f"captcha:{parts[0]}")
+    redis_client.delete(f"captcha:passed:{parts[0]}")
 
     return _make_token_resp(user)
 
@@ -61,8 +131,11 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     # 验证码校验（如果提供了邮箱）
     if req.email:
         saved = redis_client.get(f"verify_code:{req.email}")
+        _dbg_code_raw = repr(saved)
+        _dbg_code_received = repr(req.code)
+        print(f"[DEBUG] register: email={req.email}, saved={_dbg_code_raw}, received={_dbg_code_received}, match={saved == req.code if saved else 'N/A'}")
         if not saved or saved != req.code:
-            raise HTTPException(status_code=400, detail="验证码错误或已过期")
+            raise HTTPException(status_code=400, detail=f"验证码错误或已过期(saved={_dbg_code_raw}, got={_dbg_code_received})")
 
     # 检查用户名唯一
     exists = db.query(SysUser).filter(

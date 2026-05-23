@@ -20,6 +20,8 @@
         <el-form-item>
           <el-input v-model="loginForm.password" type="password" placeholder="密码" prefix-icon="Lock" size="large" show-password @keyup.enter="handleLogin" />
         </el-form-item>
+        <!-- 滑块验证码 -->
+        <SliderCaptcha @verified="onCaptchaVerified" ref="captchaRef" />
         <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="handleLogin">登 录</el-button>
       </el-form>
 
@@ -97,6 +99,7 @@ import { ref, reactive, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
+import SliderCaptcha from '../components/SliderCaptcha.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -105,6 +108,16 @@ const loading = ref(false)
 const error = ref('')
 const successMsg = ref('')
 const activeTab = ref('login')
+
+// 滑块验证码状态
+const captchaRef = ref(null)
+const loginCaptcha = reactive({ captcha_id: '', offset_x: 0, verified: false })
+
+function onCaptchaVerified(data) {
+  loginCaptcha.captcha_id = data.captcha_id
+  loginCaptcha.offset_x = data.offset_x
+  loginCaptcha.verified = true
+}
 
 const tabs = [
   { key: 'login', label: '密码登录' },
@@ -155,12 +168,20 @@ async function handleLogin() {
     error.value = '请输入用户名和密码'
     return
   }
+  if (!loginCaptcha.verified) {
+    error.value = '请先完成滑块验证'
+    return
+  }
   loading.value = true; error.value = ''; successMsg.value = ''
   try {
-    await auth.login(loginForm.username, loginForm.password)
+    const captchaStr = `${loginCaptcha.captcha_id}:${loginCaptcha.offset_x}`
+    await auth.login(loginForm.username, loginForm.password, captchaStr)
     router.push('/dashboard')
   } catch (e) {
     error.value = e.response?.data?.detail || '登录失败'
+    // 验证码失效，重置
+    loginCaptcha.verified = false
+    if (captchaRef.value) captchaRef.value?.initCaptcha?.()
   } finally { loading.value = false }
 }
 
@@ -218,6 +239,7 @@ async function handleRegister() {
     router.push('/dashboard')
   } catch (e) {
     error.value = e.response?.data?.detail || '注册失败'
+    console.log('[DEBUG] 注册失败详情:', e.response?.data)
   } finally { loading.value = false }
 }
 

@@ -11,8 +11,8 @@ export const useAuthStore = defineStore('auth', {
     username: (state) => state.user?.real_name || state.user?.username || '',
   },
   actions: {
-    async login(username, password) {
-      const res = await api.post('/auth/login', { username, password })
+    async login(username, password, captcha = '') {
+      const res = await api.post('/auth/login', { username, password, captcha })
       this._setSession(res)
       return res
     },
